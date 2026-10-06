@@ -1,0 +1,334 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+enum UserRole {
+  ADMIN
+  TECHNICIAN
+  USER
+}
+
+enum EquipmentStatus {
+  OPERATIONAL
+  MAINTENANCE_REQUIRED
+  IN_MAINTENANCE
+  OUT_OF_SERVICE
+  DECOMMISSIONED
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum WorkOrderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ThresholdOperator {
+  GREATER_THAN
+  LESS_THAN
+  EQUALS
+  NOT_EQUALS
+  GREATER_THAN_OR_EQUAL
+  LESS_THAN_OR_EQUAL
+}
+
+enum ThresholdSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ThresholdStatus {
+  NORMAL
+  WARNING
+  EXCEEDED
+  CONFLICTING
+  MISSING
+}
+
+model User {
+  id                   String             @id @default(uuid())
+  email                String             @unique
+  name                 String
+  password             String
+  role                 UserRole           @default(USER)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  maintenanceReports   MaintenanceReport[]
+  workOrdersCreated    WorkOrder[]        @relation("WorkOrderCreator")
+  workOrdersApproved   WorkOrder[]        @relation("WorkOrderApprover")
+  workOrdersRejected   WorkOrder[]        @relation("WorkOrderRejector")
+  auditLogs            AuditLog[]
+  maintenanceHistory   MaintenanceHistory[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Equipment {
+  id                   String                 @id @default(uuid())
+  identifier           String                 @unique
+  name                 String
+  type                 String
+  description          String?
+  location             String
+  status               EquipmentStatus        @default(OPERATIONAL)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  maintenanceReports   MaintenanceReport[]
+  sensorDefinitions    SensorDefinition[]
+  equipmentEvents      EquipmentEvent[]
+  maintenanceHistory   MaintenanceHistory[]
+
+  @@index([identifier])
+  @@index([type])
+  @@index([status])
+}
+
+model EquipmentEvent {
+  id                   String             @id @default(uuid())
+  equipmentId          String
+  equipment            Equipment          @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  eventType            String
+  description          String
+  eventDate            DateTime
+  createdAt            DateTime           @default(now())
+  maintenanceReports   MaintenanceReport[]
+
+  @@index([equipmentId])
+  @@index([eventDate])
+}
+
+model MaintenanceReport {
+  id                   String             @id @default(uuid())
+  equipmentId          String
+  equipment            Equipment          @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  reportedById         String
+  reportedBy           User               @relation(fields: [reportedById], references: [id])
+  issueDescription     String
+  operatingEvents      String[]
+  equipmentEventIds    String[]
+  equipmentEvents      EquipmentEvent[]
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  sensorReadings       SensorReading[]
+  triageAnalysis       TriageAnalysis?
+  workOrder            WorkOrder?
+
+  @@index([equipmentId])
+  @@index([reportedById])
+  @@index([createdAt])
+}
+
+model SensorDefinition {
+  id                   String             @id @default(uuid())
+  equipmentId          String
+  equipment            Equipment          @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  name                 String
+  unit                 String
+  description          String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  thresholds           SensorThreshold[]
+  readings             SensorReading[]
+
+  @@unique([equipmentId, name])
+  @@index([equipmentId])
+}
+
+model SensorThreshold {
+  id                   String              @id @default(uuid())
+  sensorDefinitionId   String
+  sensorDefinition     SensorDefinition    @relation(fields: [sensorDefinitionId], references: [id], onDelete: Cascade)
+  operator             ThresholdOperator
+  value                Float
+  severity             ThresholdSeverity
+  description          String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([sensorDefinitionId])
+}
+
+model SensorReading {
+  id                   String             @id @default(uuid())
+  maintenanceReportId  String
+  maintenanceReport    MaintenanceReport  @relation(fields: [maintenanceReportId], references: [id], onDelete: Cascade)
+  sensorDefinitionId   String
+  sensorDefinition     SensorDefinition   @relation(fields: [sensorDefinitionId], references: [id])
+  value                Float?
+  status               ThresholdStatus    @default(NORMAL)
+  severity             ThresholdSeverity  @default(INFO)
+  violatedThresholdId  String?
+  notes                String?
+  createdAt            DateTime           @default(now())
+
+  @@index([maintenanceReportId])
+  @@index([sensorDefinitionId])
+  @@index([status])
+}
+
+model KnowledgeDocument {
+  id                   String             @id @default(uuid())
+  title                String
+  equipmentType        String
+  filename             String
+  fileSize             Int
+  mimeType             String
+  uploadedAt           DateTime           @default(now())
+  processedAt          DateTime?
+  processingStatus     String             @default("pending")
+  processingError      String?
+  chunks               KnowledgeChunk[]
+
+  @@index([equipmentType])
+  @@index([processingStatus])
+}
+
+model KnowledgeChunk {
+  id                   String               @id @default(uuid())
+  documentId           String
+  document             KnowledgeDocument    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content              String
+  chunkIndex           Int
+  section              String?
+  page                 Int?
+  embedding            Unsupported("vector(768)")?
+  createdAt            DateTime             @default(now())
+  evidence             Evidence[]
+
+  @@index([documentId])
+  // Note: Vector similarity search may need to be done via raw SQL queries
+  // @@index([embedding(ops: raw("vector_cosine_ops"))], type: Gin)
+}
+
+model TriageAnalysis {
+  id                   String             @id @default(uuid())
+  maintenanceReportId  String             @unique
+  maintenanceReport    MaintenanceReport  @relation(fields: [maintenanceReportId], references: [id], onDelete: Cascade)
+  observations         String[]
+  possibleCauses       String[]
+  confirmedFindings    String[]
+  followUpQuestions    String[]
+  inspectionSteps      String[]
+  priority             MaintenancePriority
+  reasoningSummary     String
+  retrievalSucceeded   Boolean            @default(true)
+  aiSucceeded          Boolean            @default(true)
+  aiError              String?
+  createdAt            DateTime           @default(now())
+  evidence             Evidence[]
+  workOrder            WorkOrder?
+
+  @@index([maintenanceReportId])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model Evidence {
+  id                   String             @id @default(uuid())
+  triageAnalysisId     String
+  triageAnalysis       TriageAnalysis     @relation(fields: [triageAnalysisId], references: [id], onDelete: Cascade)
+  type                 String
+  description          String
+  sourceType           String
+  sourceId             String?
+  knowledgeChunkId     String?
+  knowledgeChunk       KnowledgeChunk?    @relation(fields: [knowledgeChunkId], references: [id])
+  section              String?
+  page                 Int?
+  relevanceScore       Float?
+  createdAt            DateTime           @default(now())
+
+  @@index([triageAnalysisId])
+  @@index([sourceType])
+}
+
+model WorkOrder {
+  id                   String             @id @default(uuid())
+  maintenanceReportId  String             @unique
+  maintenanceReport    MaintenanceReport  @relation(fields: [maintenanceReportId], references: [id], onDelete: Cascade)
+  triageAnalysisId     String?            @unique
+  triageAnalysis       TriageAnalysis?    @relation(fields: [triageAnalysisId], references: [id])
+  workOrderNumber      String             @unique
+  title                String
+  description          String
+  priority             MaintenancePriority
+  recommendedActions   String[]
+  status               WorkOrderStatus    @default(DRAFT)
+  createdById          String
+  createdBy            User               @relation("WorkOrderCreator", fields: [createdById], references: [id])
+  approvedById         String?
+  approvedBy           User?              @relation("WorkOrderApprover", fields: [approvedById], references: [id])
+  approvedAt           DateTime?
+  rejectedById         String?
+  rejectedBy           User?              @relation("WorkOrderRejector", fields: [rejectedById], references: [id])
+  rejectedAt           DateTime?
+  rejectionReason      String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  maintenanceHistory   MaintenanceHistory?
+
+  @@index([workOrderNumber])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model MaintenanceHistory {
+  id                   String             @id @default(uuid())
+  equipmentId          String
+  equipment            Equipment          @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  workOrderId          String             @unique
+  workOrder            WorkOrder          @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  completedById        String
+  completedBy          User               @relation(fields: [completedById], references: [id])
+  completedAt          DateTime           @default(now())
+  workPerformed        String
+  partsReplaced        String[]
+  findings             String
+  outcome              String
+  notes                String?
+
+  @@index([equipmentId])
+  @@index([workOrderId])
+  @@index([completedAt])
+}
+
+model AuditLog {
+  id                   String             @id @default(uuid())
+  userId               String?
+  user                 User?              @relation(fields: [userId], references: [id])
+  action               String
+  entity               String
+  entityId             String
+  metadata             Json?
+  ipAddress            String?
+  userAgent            String?
+  createdAt            DateTime           @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+}

@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground: 0 0% 3.9%;
+  --background: 0 0% 100%;
+  --muted: 0 0% 96.1%;
+  --muted-foreground: 0 0% 45.1%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground: 0 0% 98%;
+    --background: 0 0% 3.9%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+  }
+}
+
+body {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
