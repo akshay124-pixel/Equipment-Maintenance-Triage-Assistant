@@ -6,15 +6,16 @@ import { auditLogger } from '@/lib/services/audit-logger';
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await requireRole(['TECHNICIAN', 'ADMIN']);
+    const { id } = await params;
     const body = await request.json();
     const validated = rejectWorkOrderSchema.parse(body);
 
     const workOrder = await prisma.workOrder.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!workOrder) {
@@ -39,7 +40,7 @@ export async function POST(
     }
 
     const updated = await prisma.workOrder.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         status: 'REJECTED',
         rejectedById: session.userId,

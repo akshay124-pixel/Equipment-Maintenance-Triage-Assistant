@@ -4,13 +4,14 @@ import { requireAuth } from '@/lib/auth/session';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await requireAuth();
+    const { id } = await params;
 
     const report = await prisma.maintenanceReport.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         equipment: true,
         reportedBy: {

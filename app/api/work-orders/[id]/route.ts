@@ -6,13 +6,14 @@ import { auditLogger } from '@/lib/services/audit-logger';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAuth();
+    const { id } = await params;
 
     const workOrder = await prisma.workOrder.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         maintenanceReport: {
           include: {
@@ -79,16 +80,17 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await requireRole(['TECHNICIAN', 'ADMIN']);
+    const { id } = await params;
     const body = await request.json();
     const validated = updateWorkOrderSchema.parse(body);
 
     // Check if work order exists and is editable
     const workOrder = await prisma.workOrder.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!workOrder) {
@@ -112,7 +114,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.workOrder.update({
-      where: { id: params.id },
+      where: { id },
       data: validated,
     });
 

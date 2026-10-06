@@ -198,13 +198,13 @@ export default function KnowledgePage() {
               className="hidden"
               disabled={uploading}
             />
-            <label htmlFor="file-upload">
-              <Button as="span" disabled={uploading} loading={uploading} variant="secondary" size="lg">
+            <label htmlFor="file-upload" className="inline-block">
+              <span className="inline-flex items-center justify-center px-6 py-3 text-base font-medium rounded-lg shadow-sm transition-colors cursor-pointer bg-secondary-600 text-white hover:bg-secondary-700 disabled:opacity-50 disabled:cursor-not-allowed">
                 <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
-                Upload Document
-              </Button>
+                {uploading ? 'Uploading...' : 'Upload Document'}
+              </span>
             </label>
           </div>
         </div>

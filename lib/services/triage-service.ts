@@ -55,7 +55,7 @@ export class TriageService {
       const sensorResults = await this.evaluateSensorThresholds(report);
 
       // Step 2: Retrieve relevant knowledge base chunks
-      let retrievedChunks;
+      let retrievedChunks: any[] = [];
       let retrievalSucceeded = true;
       
       try {
@@ -134,7 +134,7 @@ export class TriageService {
       // Step 7: Store evidence
       for (const evidence of aiResult.evidence) {
         const knowledgeChunkId = retrievedChunks.find(
-          c => c.section === evidence.section || c.page === evidence.page
+          c => c.section === (evidence as any).section || c.page === (evidence as any).page
         )?.chunkId;
 
         await prisma.evidence.create({
@@ -145,8 +145,8 @@ export class TriageService {
             sourceType: evidence.sourceType,
             sourceId: evidence.sourceId,
             knowledgeChunkId,
-            section: evidence.section,
-            page: evidence.page,
+            section: (evidence as any).section,
+            page: (evidence as any).page,
           },
         });
       }
